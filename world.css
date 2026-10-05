@@ -899,3 +899,54 @@ dialog li {
 }
 
 .map-road.horizontal { top: 62.8%; }
+
+/* Combat HUD theme */
+:root { --ink:#fff; --muted:#b8b8c8; --paper:#17171f; --border:#444450; }
+body { background:#09090d; color:#fff; }
+.brand-icon { background:#ff354d; color:#fff; border-radius:2px; }
+.brand small,.eyebrow,.intro>p:not(.eyebrow),.intro-line,.world-caption span,.controls p span,.footnote { color:#bcbccc; }
+h1 { font-weight:700; text-transform:uppercase; font-style:italic; }
+h1 em { color:#ff354d; }
+nav span { background:#ff354d; color:#fff; border-radius:0; }
+.classic-link { border-color:#ff354d; border-radius:0; }
+.mode-picker,.toolbar>button,.minimap,.station-label,#nearby { background:#17171fed; border-color:#4a4a59; border-radius:2px; box-shadow:0 8px 24px #0007; }
+.mode-picker button { color:#c8c8d2; border-radius:0; }.mode-picker button.active { background:#ff354d; color:white; }
+.station-label { border-left:3px solid #ff354d; color:#fff; }.station-label small,.station-label>span:last-child { color:#c2c2ce; }.station-label .number { color:white; border-radius:0; }
+.map-heading,.map-heading span:first-child,.minimap p { color:#d5d5df; }.map { background:#24242e; border-color:#484854; }.map-road { background:#4d4d5c; }.map button { color:#fff; border-color:#fff8; border-radius:0; }.map button:hover { outline-color:#fff; }#map-player { background:#fff; box-shadow:0 0 0 3px #ff354d; }
+#nearby>span { color:#fff; }#nearby button,.repo-link { background:#ff354d; color:#fff; border-radius:0; }
+kbd { background:#2a2a35; border-color:#555565; color:#fff; border-radius:0; }
+.touch-pad button { background:#24242ef2; color:#fff; border-color:#ff354d; border-radius:2px; }.touch-pad button:active { background:#ff354d; }
+#loading { background:#09090d; color:#fff; }.loading-mark { color:#ff354d; }#loading a { color:#fff; }
+dialog { background:#17171f; color:#fff; border-color:#ff354d; border-radius:2px; border-top-width:4px; }dialog::backdrop { background:#000b; }dialog p,dialog li { color:#c3c3cf; }.close { color:#fff; }.chips span { color:#fff; border-color:#555563; border-radius:0; }.note { border-color:#444451; }.project-row { background:#24242d; color:#fff; border-color:#494955; border-radius:0; }.project-row small { color:#c4c4d0; }.project-row>span:first-child { color:#fff; border-radius:0; }
+button:focus-visible,a:focus-visible,#world:focus-visible { outline-color:#ff6175; }
+
+/* Comic HUD: angled command tabs, paper labels, and heavy ink borders. */
+.topbar { gap:16px; }
+.brand { background:white; color:#101015; padding:7px 13px 7px 7px; transform:rotate(-3deg); box-shadow:5px 5px 0 #e82e48; }
+.brand small { color:#383843; }.brand-icon { border-radius:0; }
+nav { gap:12px; }nav button,nav>a { background:#111116; border:2px solid white; padding:9px 12px; transform:skew(-9deg); color:#fff; font-weight:700; }
+nav button:hover,nav>a:hover { background:#e82e48; }.classic-link { border:2px solid white; }
+.intro h1 { line-height:1.08; text-shadow:3px 3px 0 #000; transform:rotate(-3deg); }
+.intro h1 em { background:white; color:#101015; padding:0 7px; box-shadow:5px 5px 0 #e82e48; }
+.intro .eyebrow { background:#e82e48; color:white; padding:7px 10px; display:inline-flex; }
+.mode-picker { border:2px solid white; transform:skew(-8deg); box-shadow:4px 4px 0 #e82e48; }
+.mode-picker button { font-weight:700; text-transform:uppercase; }.toolbar>button { border:2px solid white; box-shadow:3px 3px 0 #e82e48; }
+.station-label { background:#fff; color:#111; border:3px solid #101015; border-bottom:5px solid #e82e48; border-radius:0; box-shadow:4px 4px 0 #0009; padding:9px 13px; font-weight:700; font-size:13px; }
+.station-label small { color:#45454f; font-size:10px; }.station-label>span:last-child { color:#c62039; }.station-label .number { background:#e82e48; color:white; font-size:12px; }
+.station-label:hover { background:#e82e48; color:white; }.station-label:hover small { color:white; }
+.minimap { border:2px solid white; border-top:5px solid #e82e48; box-shadow:5px 5px 0 #e82e48; }.map-heading { font-size:9px; }.minimap p { font-size:11px; }
+#nearby { border:2px solid white; box-shadow:5px 5px 0 #e82e48; }#nearby>span { font-size:13px; }#nearby button { font-weight:700; text-transform:uppercase; }
+.touch-pad button { border:2px solid white; background:#111116; width:44px; height:44px; box-shadow:3px 3px 0 #e82e48; }
+dialog { border:3px solid white; box-shadow:8px 8px 0 #e82e48; }.project-row { border:2px solid white; }.project-row strong { font-size:16px; }.project-row small { font-size:12px; }dialog p,dialog li { font-size:16px; }.chips span { font-size:12px; }.repo-link { font-size:16px; border:2px solid white; }
+@media(max-width:1000px) { nav { gap:8px; } nav button,nav>a { padding:8px; font-size:12px; }.station-label { font-size:12px; } }
+@media(max-width:650px) {
+ .brand { padding:5px; font-size:14px; }.brand small { display:none; }.topbar { align-items:start; left:12px; right:12px; gap:12px; }nav { gap:7px; flex-wrap:wrap; justify-content:flex-end; max-width:180px; }nav button { font-size:12px; padding:8px; }
+ .intro { top:108px; left:16px; width:200px; }.intro h1 { font-size:28px; }.intro>p:not(.eyebrow) { display:none; }.toolbar { top:108px; }.station-label { font-size:11px; padding:5px 7px; max-width:128px; }.station-label .number { font-size:10px; }
+ .minimap { width:135px; right:16px; }.map-heading { font-size:8px; }.minimap p { font-size:10px; }.touch-pad { left:16px; }
+}
+
+/* Compact station labels keep exhibits visible. */
+.station-label { padding:6px 9px; gap:6px; font-size:12px; border-width:2px; border-bottom-width:3px; max-width:210px; }
+.station-label small { display:none; }.station-label .number { padding:4px; font-size:10px; }
+.station-label>span:last-child { margin-left:3px; }
+@media(max-width:650px) { .station-label { padding:4px 6px; max-width:125px; font-size:10px; gap:4px; }.station-label .number { font-size:9px; padding:3px; } }
