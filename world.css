@@ -890,3 +890,12 @@ dialog li {
         transition: none !important
     }
 }
+
+/* Keep both work menus available on smaller screens. */
+@media (max-width:650px) {
+  .topbar nav { gap: 10px; }
+  .topbar nav > a[target="_blank"] { display: none; }
+  .station-label { max-width: 145px; white-space: normal; text-align: left; }
+}
+
+.map-road.horizontal { top: 62.8%; }
