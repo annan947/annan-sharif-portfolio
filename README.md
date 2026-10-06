@@ -2,7 +2,7 @@
 
 My personal portfolio, built as an interactive 3D island. Visitors can walk or drive between exhibits to explore my projects, learn about my experience, and get in touch.
 
-🌐 **Live website:** (https://annan947.github.io/)](https://annan947.github.io/annan-sharif-portfolio/)
+🌐 **Live website:** (https://annan947.github.io/annan-sharif-portfolio/)
 
 ## Screenshots
 
