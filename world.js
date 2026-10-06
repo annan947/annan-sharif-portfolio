@@ -7,7 +7,7 @@ import { move, nearestProject } from './movement.js?v=20261005-mecha-final';
 const host = document.querySelector('#world'), dialog = document.querySelector('#details');
 const keys = new Set(), visited = new Set(); let activeProject = null, mode = 'walk', destination = null, speed = 0, phase = 0;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-function clearInput() { keys.clear(); speed = 0; destination = null }
+function clearInput() { keys.clear(); speed = 0; destination = null; resetJoystick() }
 function openDialog(html) { clearInput(); document.querySelector('#dialog-content').innerHTML = html; if (!dialog.open) dialog.showModal() }
 function projectDetails(p) { if (p.role) return experienceDetails(p); visited.add(p.id); document.querySelector('#visited').textContent = `${visited.size} / ${stations.length} EXPLORED`; openDialog(`<p class="eyebrow">${p.number} / ${p.category}</p><h2>${p.fullTitle}</h2><p>${p.description}</p><div class="chips">${p.stack.map(s => `<span>${s}</span>`).join('')}</div><ul>${p.points.map(s => `<li>${s}</li>`).join('')}</ul><a class="repo-link" href="${p.repo}" target="_blank" rel="noopener noreferrer">View project on GitHub <span>↗</span></a><p class="note">${p.note}</p>`) }
 function experienceDetails(p) {
@@ -24,7 +24,7 @@ function projectMenu() { openDialog('<p class="eyebrow">EXPLORE THE WORK</p><h2>
 document.querySelector('#projects-button').onclick = projectMenu;
 document.querySelector('#about-button').onclick = () => openDialog('<p class="eyebrow">THE PERSON BEHIND THE PROJECTS</p><h2>Hey, I’m Annan.</h2><p>I’m a Computer Science student at The City College of New York, expecting to graduate in May 2028. I love problem solving: breaking down a challenge, figuring out how the pieces fit, and building something that works. My projects let me explore that curiosity through algorithms, simulations, and practical software.</p><h3>Learning through experience</h3><p>At <strong>Handshake AI</strong>, I evaluated AI responses, designed test cases and edge cases, and documented problems in reasoning and factual accuracy. The work pushed me to think critically and pay attention to details.</p><p>At <strong>Sydra through CUNY Career Launch</strong>, I wrote Python scripts to monitor water levels in a hydrolysis reactor prototype and collaborated with an engineering team on testing and hardware/software integration. I enjoyed seeing code help improve a physical system.</p><p>At <strong>Tanim Consulting</strong>, I used Python and SQL to clean and validate data, automate recurring checks, and investigate data quality issues. It gave me experience making information more reliable and workflows more efficient.</p><h3>Beyond the code</h3><p>I love TV shows, video games, movies, and music. I enjoy getting caught up in a good story, exploring the worlds that games create, and finding something new to watch or listen to. Those interests feed my creativity, while problem solving keeps me curious about how things work. Whether I’m working through a coding challenge or building a project, I enjoy the process of learning, experimenting, and figuring things out.</p><div class="chips"><span>Python</span><span>C/C++</span><span>SQL</span><span>JavaScript</span><span>React</span><span>FastAPI</span></div><a class="repo-link" href="https://mail.google.com/mail/?view=cm&fs=1&to=sharifannan497%40gmail.com&su=Hello+from+your+portfolio&body=Hi+Annan%2C%0A%0AI+came+across+your+portfolio+and+wanted+to+get+in+touch.%0A%0A" target="_blank" rel="noopener noreferrer">Let’s get in touch <span>↗</span></a><div class="about-links"><a href="classic.html">Experience ↗</a></div>');
 document.querySelector('.close').onclick = () => dialog.close(); dialog.addEventListener('close', () => { clearInput(); host.focus({ preventScroll: true }) }); dialog.addEventListener('click', e => { const r = dialog.getBoundingClientRect(); if (e.target === dialog && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) dialog.close() });
-document.querySelector('#soundless-help').onclick = () => openDialog('<p class="eyebrow">MAKE YOURSELF AT HOME</p><h2>Your arena controls.</h2><ul><li><strong>WASD or arrow keys:</strong> move in the direction shown on your screen.</li><li><strong>Click or tap the ground:</strong> move toward that spot. Buildings block your path; steer around them.</li><li><strong>E:</strong> open a station when you are near its entrance. You can also click its floating label.</li><li><strong>V:</strong> switch between walking and driving. Hold Shift to sprint while walking.</li><li><strong>Map stations:</strong> jump straight to a project’s entrance.</li><li><strong>Touch screens:</strong> use the arrow pad or tap the ground.</li><li><strong>Escape:</strong> close station details.</li></ul><p>The Projects and Experience menus work without navigating the world.</p><a class="repo-link" href="classic.html">Open the classic portfolio ↗</a>');
+document.querySelector('#soundless-help').onclick = () => openDialog('<p class="eyebrow">MAKE YOURSELF AT HOME</p><h2>Your arena controls.</h2><ul><li><strong>WASD or arrow keys:</strong> move in the direction shown on your screen.</li><li><strong>Click or tap the ground:</strong> move toward that spot. Buildings block your path; steer around them.</li><li><strong>E:</strong> open a station when you are near its entrance. You can also click its floating label.</li><li><strong>V:</strong> switch between walking and driving. Hold Shift to sprint while walking.</li><li><strong>Map stations:</strong> jump straight to a project’s entrance.</li><li><strong>Touch screens:</strong> drag the joystick in any direction or tap the ground.</li><li><strong>Escape:</strong> close station details.</li></ul><p>The Projects and Experience menus work without navigating the world.</p><a class="repo-link" href="classic.html">Open the classic portfolio ↗</a>');
 
 let renderer; try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }) } catch (e) { document.querySelector('#loading-text').textContent = '3D is unavailable in this browser. Open the classic portfolio below.'; throw e }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x09090d); host.append(renderer.domElement);
@@ -210,13 +210,57 @@ const shadow = new THREE.Mesh(new THREE.CircleGeometry(.7, 24), new THREE.MeshBa
 function setMode(value) { mode = value; avatar.visible = mode === 'walk'; car.visible = mode === 'drive'; speed = 0; document.querySelector('#walk').classList.toggle('active', mode === 'walk'); document.querySelector('#drive').classList.toggle('active', mode === 'drive'); document.querySelector('#walk').setAttribute('aria-pressed', mode === 'walk'); document.querySelector('#drive').setAttribute('aria-pressed', mode === 'drive'); host.focus({ preventScroll: true }) }
 document.querySelector('#walk').onclick = () => setMode('walk'); document.querySelector('#drive').onclick = () => setMode('drive'); document.querySelector('#reset').onclick = () => { clearInput(); player.position.set(0, .25, 6); host.focus({ preventScroll: true }) }; document.querySelector('#interact').onclick = () => { if (activeProject) projectDetails(activeProject) };
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight']); window.addEventListener('keydown', e => { if (dialog.open) return; if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return; if (movementKeys.has(e.code)) { e.preventDefault(); keys.add(e.code); destination = null } if (!e.repeat && e.code === 'KeyE' && activeProject) { e.preventDefault(); projectDetails(activeProject) } if (!e.repeat && e.code === 'KeyV') { e.preventDefault(); setMode(mode === 'walk' ? 'drive' : 'walk') } }); window.addEventListener('keyup', e => keys.delete(e.code)); window.addEventListener('blur', clearInput); document.addEventListener('visibilitychange', clearInput);
-document.querySelectorAll('[data-key]').forEach(b => { b.addEventListener('pointerdown', e => { e.preventDefault(); destination = null; b.setPointerCapture(e.pointerId); keys.add(b.dataset.key) }); for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(event, () => keys.delete(b.dataset.key)) });
+const joystick = document.querySelector('#joystick');
+const joystickKnob = joystick.querySelector('.joystick-knob');
+const stick = { x: 0, y: 0, pointer: null };
+function resetJoystick() {
+    stick.x = 0;
+    stick.y = 0;
+    const pointer = stick.pointer;
+    stick.pointer = null;
+    joystickKnob.style.transform = 'translate(-50%, -50%)';
+    joystick.classList.remove('active');
+    if (pointer !== null && joystick.hasPointerCapture(pointer)) joystick.releasePointerCapture(pointer);
+}
+function updateJoystick(event) {
+    const bounds = joystick.getBoundingClientRect();
+    const radius = bounds.width * .32;
+    let x = event.clientX - bounds.left - bounds.width / 2;
+    let y = event.clientY - bounds.top - bounds.height / 2;
+    const distance = Math.hypot(x, y);
+    if (distance > radius) { x *= radius / distance; y *= radius / distance; }
+    const magnitude = Math.min(distance / radius, 1);
+    const strength = magnitude < .12 ? 0 : (magnitude - .12) / .88;
+    stick.x = distance ? x / Math.hypot(x, y) * strength : 0;
+    stick.y = distance ? -y / Math.hypot(x, y) * strength : 0;
+    joystickKnob.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
+}
+joystick.addEventListener('pointerdown', event => {
+    if (dialog.open || stick.pointer !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    event.preventDefault();
+    destination = null;
+    stick.pointer = event.pointerId;
+    joystick.setPointerCapture(event.pointerId);
+    joystick.classList.add('active');
+    updateJoystick(event);
+});
+joystick.addEventListener('pointermove', event => {
+    if (event.pointerId !== stick.pointer) return;
+    event.preventDefault();
+    updateJoystick(event);
+});
+for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+    joystick.addEventListener(name, event => {
+        if (event.pointerId === stick.pointer) { resetJoystick(); speed = 0; }
+    });
+}
+joystick.addEventListener('contextmenu', event => event.preventDefault());
 const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.25), hit = new THREE.Vector3(); renderer.domElement.addEventListener('pointerdown', e => { if (dialog.open) return; host.focus({ preventScroll: true }); mouse.set(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2); raycaster.setFromCamera(mouse, camera); if (raycaster.ray.intersectPlane(plane, hit)) destination = new THREE.Vector3(THREE.MathUtils.clamp(hit.x, -25, 25), .25, THREE.MathUtils.clamp(hit.z, -41, 23)) });
 const forward = new THREE.Vector3(-offset.x, 0, -offset.z).normalize(), right = new THREE.Vector3(offset.z, 0, -offset.x).normalize(); const motion = new THREE.Vector3(), projected = new THREE.Vector3(); let previous = performance.now(), elapsed = 0;
 function resize() { const aspect = innerWidth / innerHeight, size = Math.max(34, 34 / aspect), shift = innerWidth > 1000 ? -4 : 0; camera.left = -size * aspect + shift; camera.right = size * aspect + shift; camera.top = size + 3; camera.bottom = -size + 3; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight) } window.addEventListener('resize', resize); resize();
 function frame(now) {
-    requestAnimationFrame(frame); if (document.hidden) { previous = now; return } const dt = Math.min((now - previous) / 1000, .04); previous = now; elapsed += dt; motion.set(0, 0, 0); if (!dialog.open) { const horizontal = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')); const vertical = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')); motion.addScaledVector(right, horizontal).addScaledVector(forward, vertical); if (destination && !motion.lengthSq()) { motion.subVectors(destination, player.position); motion.y = 0; if (motion.length() < .25) { destination = null; motion.set(0, 0, 0) } } }
-    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 7 : 4.5); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, obstacles, mode === 'drive' ? 1.8 : .65); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
+    requestAnimationFrame(frame); if (document.hidden) { previous = now; return } const dt = Math.min((now - previous) / 1000, .04); previous = now; elapsed += dt; motion.set(0, 0, 0); if (!dialog.open) { const horizontal = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')) + stick.x; const vertical = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + stick.y; motion.addScaledVector(right, horizontal).addScaledVector(forward, vertical); if (destination && !motion.lengthSq()) { motion.subVectors(destination, player.position); motion.y = 0; if (motion.length() < .25) { destination = null; motion.set(0, 0, 0) } } }
+    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 7 : 4.5); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed * (stick.pointer !== null && !keys.size ? Math.hypot(stick.x, stick.y) : 1) : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, obstacles, mode === 'drive' ? 1.8 : .65); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
     avatar.position.y = moving && !reduced ? Math.abs(Math.sin(phase)) * .07 : 0; legs.forEach((leg, i) => leg.rotation.x = moving ? Math.sin(phase + i * Math.PI) * .48 : 0); arms.forEach((arm, i) => arm.rotation.x = moving ? -Math.sin(phase + i * Math.PI) * .4 : 0); if (moving) wheels.forEach(w => w.rotation.x += dt * speed * 2.6);
     if (!reduced) for (const a of animated) { if (a.kind === 'agent') { a.mesh.position.x = Math.cos(a.a + elapsed * .18) * a.r; a.mesh.position.z = Math.sin(a.a + elapsed * .22) * a.r } else if (a.kind === 'cloud') a.mesh.position.x = Math.sin(elapsed * .55) * .15 }
     const wanted = new THREE.Vector3(player.position.x * .13, 0, player.position.z * .13); focus.lerp(wanted, reduced ? 1 : 1 - Math.exp(-dt * 2)); camera.position.copy(focus).add(offset); camera.lookAt(focus); camera.updateMatrixWorld();
