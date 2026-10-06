@@ -103,7 +103,7 @@ for(let row=0;row<3;row++)for(let col=0;col<17;col++) {
     const x=-51+col*6.4+(row%2)*2, z=-row*9;
     const h= row===0 ? 3+(col*7%11) : 5+(col*11+row*5)%21;
     const w=3.5+(col%3)*.65, d=4+(row+col)%3;
-    const palette=[0x899dad,0xb6c4cc,0x728a9c,0xa0b2c0,0xced3d2];
+    const palette=[0xe3b955,0x67aaa6,0xc78170,0x819fca,0xb49bc8,0xe4d2a5,0x88b783];
     const color=palette[(col+row)%palette.length];
     box(skyline,w,h,d,x,h/2,z,color); cityObstacles.push({x,z:z-66,w:w+.4,d:d+.4});
     box(skyline,w*.68,.7,d*.7,x,h+.35,z,0x6f8394);
@@ -145,16 +145,16 @@ box(skyline,2.6,8,3,43,17,-20.8,0x768ea0);
 const district=new THREE.Group();district.position.y=1.7;scene.add(district);
 for(const x of [-52,52]) {
     box(district,25,1,111,x,-2.1,-10,0x56606c);
-    box(district,7,.08,101,x- Math.sign(x)*5,-1.55,-8,0x414954);
-    box(district,2,.08,101,x-Math.sign(x)*8.6,-1.51,-8,0xa0a9ad);
+
+
 }
 for(const [z,depth] of [[-73,38],[46,20]]) {
     box(district,129,1,depth,0,-2.1,z,0x56606c);
-    box(district,99,.08,7,0,-1.55,z<0?-58:43,0x414954);
-    box(district,99,.08,2,0,-1.51,z<0?-54.5:39.5,0xa0a9ad);
+
+
 }
 function cityBlock(x,z,height,index) {
-    const color=[0xa7b4bd,0x7f929f,0xc2c8c8,0x8093a5,0x929caa][index%5];
+    const color=[0xe5bd50,0x69ada7,0xd28c78,0x83a5cf,0xb89ac9,0xe7d4ac,0x95b779][index%7];
     box(district,5.8,height,5.5,x,height/2-1.5,z,color); cityObstacles.push({x,z,w:6.2,d:6});
     box(district,6.1,.28,5.8,x,height-1.38,z,0xd8d9d2);
     box(district,2.5,.65,2,x+1,height-.96,z-.5,0x637482);
@@ -177,17 +177,55 @@ for(const x of [-42,42]) for(const z of [-42,-18,8,29]) {
     cylinder(district,.1,.18,1.2,x,-.8,z,0x76604b,7);
     const canopy=sphere(district,.8,x,.3,z,0x8fa76c);canopy.scale.y=1.3;
 }
-// Streets and sidewalks link the portfolio plaza directly to the surrounding districts.
-for(const x of [-34,34]) {
-    box(scene,7,.06,104,x,.19,-9,0x414954);
-    for(const dx of [-4.4,4.4])box(scene,1.7,.08,104,x+dx,.17,-9,0xb5bfc7);
-    box(scene,20,.06,7,x,.19,0,0x414954);
+// Connected street grid: sidewalks stop at intersections instead of crossing the asphalt.
+const streets=new THREE.Group();scene.add(streets);
+const verticalRoads=[-47,-34,34,47],horizontalRoads=[-58,-49,31,43];
+const asphalt=0x555668,curb=0xcac5c4,lanePaint=0xf7cd65;
+function streetSlab(w,d,x,z,color,y=.27,h=.06){return box(streets,w,h,d,x,y,z,color);}
+for(const x of verticalRoads)streetSlab(7,108,x,-7.5,asphalt);
+for(const z of horizontalRoads)streetSlab(101,7,0,z,asphalt);
+// A direct east-west connection into the portfolio plaza.
+streetSlab(101,7,0,0,asphalt);
+const crossStreets=[...horizontalRoads,0].sort((a,b)=>a-b);
+function sidewalkSegments(cuts,start,end,draw){
+    let from=start;
+    for(const cut of cuts){const to=cut-3.7;if(to>from)draw(from,to);from=Math.max(from,cut+3.7);}
+    if(from<end)draw(from,end);
 }
-for(const z of [-49,31]) {
-    box(scene,99,.06,7,0,.19,z,0x414954);
-    for(const dz of [-4.4,4.4])box(scene,99,.08,1.7,0,.17,z+dz,0xb5bfc7);
-    box(scene,7,.06,18,0,.19,z,0x414954);
+for(const x of verticalRoads){
+    for(const side of [-1,1])sidewalkSegments(crossStreets,-61.5,46.5,(a,b)=>{
+        streetSlab(1.35,b-a,x+side*4.18,(a+b)/2,curb,.32,.16);
+        // Paving joints, drawn only on sidewalks.
+        for(let z=a+2;z<b;z+=3)streetSlab(1.35,.035,x+side*4.18,z,0xa6a0a4,.409,.012);
+    });
+    for(let z=-60;z<46;z+=5)if(crossStreets.every(c=>Math.abs(z-c)>5))streetSlab(.16,2.5,x,z,lanePaint,.308,.014);
 }
+for(const z of crossStreets){
+    for(const side of [-1,1])sidewalkSegments(verticalRoads,-50.5,50.5,(a,b)=>{
+        // Keep the exhibition plaza open along the central access road.
+        if(z===0&&a<28&&b> -28)return;
+        streetSlab(b-a,1.35,(a+b)/2,z+side*4.18,curb,.32,.16);
+        for(let x=a+2;x<b;x+=3)streetSlab(.035,1.35,x,z+side*4.18,0xa6a0a4,.409,.012);
+    });
+    for(let x=-49;x<50;x+=5)if(verticalRoads.every(c=>Math.abs(x-c)>5))streetSlab(2.5,.16,x,z,lanePaint,.308,.014);
+}
+// Zebra crossings sit just outside each junction, with clear drivable lanes.
+for(const x of [-34,34])for(const z of [-49,31,0]){
+    for(const side of [-1,1])for(let stripe=-2.4;stripe<=2.4;stripe+=1.2){
+        streetSlab(.65,1.5,x+stripe,z+side*4.9,0xf5f2e8,.311,.018);
+        streetSlab(1.5,.65,x+side*4.9,z+stripe,0xf5f2e8,.311,.018);
+    }
+    for(const side of [-1,1]){
+        const lx=x+side*4.65,lz=z+5.5;
+        cylinder(streets,.06,.09,3.8,lx,2.3,lz,0xd8d4cc,7);
+        box(streets,1.15,.12,.14,lx-side*.5,4.16,lz,0xd8d4cc);
+        box(streets,.55,.13,.3,lx-side*.98,4.1,lz,0xffebad);
+        const signal=box(streets,.3,.85,.3,x+side*4.4,2.4,z-4.8,0x303242);
+        cylinder(streets,.06,.07,1.9,x+side*4.4,1.2,z-4.8,0x303242,6);
+        for(let light=0;light<3;light++)sphere(streets,.08,x+side*4.4,2.65-light*.25,z-4.63,[0xf16d6d,0xf6cd5c,0x79c68e][light]);
+    }
+}
+streets.traverse(mesh=>{if(mesh.isMesh){mesh.castShadow=false;mesh.receiveShadow=false;}});
 cityObstacles.push({x:-12,z:-75,w:6,d:6},{x:20,z:-82,w:7,d:7},{x:-31,z:-72,w:5,d:5},{x:38,z:-76,w:7,d:6},{x:-42,z:-74,w:5.5,d:5.5},{x:42,z:-86,w:6,d:7});
 // Traffic loops on the city roads, separated from the playable island by water.
 function loopPosition(distance,xExtent,zNorth,zSouth) {
@@ -214,6 +252,7 @@ for(let i=0;i<16;i++) {
     traffic.push({mesh:vehicle,slot:Math.floor(i/2),lane:i%2,reverse:i%2===0});
 }
 // Railway joins both waterfronts and two supported station platforms.
+const railwayShadowStart=scene.children.length;
 box(scene,133,.4,3.2,0,4,34,0x697d8f);
 for(const z of [33.2,34.8])box(scene,133,.09,.1,0,4.25,z,0xe3edf1);
 for(let x=-65;x<67;x+=1.8)box(scene,.18,.08,2.5,x,4.22,34,0x3d4f5f);
@@ -233,6 +272,10 @@ for(const x of [-64,64]) {
     box(scene,.04,1.8,2.4,x+(x<0?3.51:-3.51),4.5,34,0x182431);
     cityObstacles.push({x,z:34,w:7,d:7});
 }
+// Keep elevated railway geometry from projecting clipped shadow strips onto roads.
+const railwayParts=scene.children.slice(railwayShadowStart);
+for(const part of railwayParts)part.traverse(mesh=>{if(mesh.isMesh){mesh.castShadow=false;mesh.receiveShadow=false;}});
+for(const buildings of [skyline,district,chrysler,chase])buildings.traverse(mesh=>{if(mesh.isMesh){mesh.castShadow=false;mesh.receiveShadow=false;}});
 const trainCars=[];
 for(let i=0;i<4;i++) {
     const carriage=new THREE.Group();scene.add(carriage);
@@ -244,6 +287,7 @@ for(let i=0;i<4;i++) {
     }
     box(carriage,1.22,.43,.04,0,1.07,2.62,0x304c67);
     for(const x of [-.5,.5])box(carriage,.17,.13,.04,x,.6,2.63,0xffe0a5);
+    carriage.traverse(mesh=>{if(mesh.isMesh){mesh.castShadow=false;mesh.receiveShadow=false;}});
     trainCars.push(carriage);
 }
 const laneProgress=[0,0]; let lastCityTime=0;

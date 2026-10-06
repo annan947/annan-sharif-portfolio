@@ -842,3 +842,7 @@ dialog { border:3px solid #fff; box-shadow:9px 9px 0 #e82e48; }dialog p,dialog l
 
 body > header { justify-content:flex-end; }
 @media(max-width:800px) { body > header { justify-content:center; } }
+
+/* Keep complete project screenshots visible at every screen size. */
+.project-screenshot img {height:auto; max-height:380px; object-fit:contain;}
+a.detail {display:flex;align-items:center;justify-content:space-between;text-decoration:none;}
