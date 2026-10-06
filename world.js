@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.js';
-import { projects } from './projects.js';
-import { experiences } from './experience.js';
+import { projects } from './projects.js?v=20261005-mecha-final';
+import { experiences } from './experience.js?v=20261005-mecha-final';
 const stations = [...projects, ...experiences];
-import { move, nearestProject } from './movement.js';
+import { move, nearestProject } from './movement.js?v=20261005-mecha-final';
 
 const host = document.querySelector('#world'), dialog = document.querySelector('#details');
 const keys = new Set(), visited = new Set(); let activeProject = null, mode = 'walk', destination = null, speed = 0, phase = 0;
