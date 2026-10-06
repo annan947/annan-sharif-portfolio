@@ -7,7 +7,7 @@ My personal portfolio, built as an interactive 3D island. Visitors can walk or d
 ## Screenshots
 
 ### Project Island
-<img width="1911" height="936" alt="image" src="https://github.com/user-attachments/assets/ad8be835-590c-4db4-bf91-dd58221cf3e3" />
+<img width="1904" height="933" alt="image" src="https://github.com/user-attachments/assets/e5c64a5f-4654-49ae-8787-267a113c8f2e" />
 
 
 ### Classic View
