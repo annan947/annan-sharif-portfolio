@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { projects } from './projects.js?v=20261006-clear-sky';
 import { experiences } from './experience.js?v=20261006-clear-sky';
 const stations = [...projects, ...experiences];
-import { move, nearestProject, onTerrain } from './movement.js?v=20261006-clear-sky';
+import { move, nearestProject, onTerrain } from './movement.js?v=20261006-continuous-city';
 
 const host = document.querySelector('#world'), dialog = document.querySelector('#details');
 const keys = new Set(), visited = new Set(); let activeProject = null, mode = 'walk', destination = null, speed = 0, phase = 0;
@@ -37,7 +37,10 @@ function box(parent, w, h, d, x, y, z, c) { const m = new THREE.Mesh(new THREE.B
 function cylinder(parent, r1, r2, h, x, y, z, c, n = 12) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, n), mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m }
 function sphere(parent, r, x, y, z, c) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat(c)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m }
 function line(parent, points, color) { const g = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(...p))); const m = new THREE.Line(g, new THREE.LineBasicMaterial({ color })); parent.add(m); return m }
-// One continuous industrial island with a waterfront all around it.
+// Continuous city ground fills the former canals, with water only outside its perimeter.
+box(scene,129,1.6,148,0,-1,-18,0x56606c);
+box(scene,129,.35,148,0,-.05,-18,0x8995a3);
+box(scene,130,.25,149,0,-1.75,-18,0x465460);
 box(scene, 56, 1.6, 70, 0, -1, -9, 0x16161e);
 box(scene, 55.6, .35, 69.6, 0, -.05, -9, 0x8995a3);
 box(scene, 57, .25, 71, 0, -1.75, -9, 0x0e0e14);
@@ -49,12 +52,12 @@ box(scene, 43, .06, 3, 0, .17, -24, 0x414954);
 for (const x of [-18,18]) box(scene, 2.7, .06, 19, x, .17, -15, 0x414954);
 for (let z = -25; z < 24; z += 3) box(scene, .13, .025, 1.1, 0, .22, z, 0xff354d);
 for (let x = -24; x < 25; x += 3) box(scene, 1.1, .025, .13, x, .22, 0, 0xff354d);
-// Broad blue triangular facets, with continuous animated wave heights.
-const waterGeometry = new THREE.PlaneGeometry(240,240,48,48).toNonIndexed();
+// Turquoise faceted water with drifting reflections, current streaks, and shoreline foam.
+const waterGeometry = new THREE.PlaneGeometry(240,240,80,80).toNonIndexed();
 const waterColors=[];
 for(let triangle=0;triangle<waterGeometry.attributes.position.count/3;triangle++) {
     const shade=(Math.sin(triangle*127.1+311.7)*43758.5453)%1;
-    const color=new THREE.Color().setHSL(.55 + Math.abs(shade)*.025,.65,.43+Math.abs(shade)*.17);
+    const color=new THREE.Color().setHSL(.575 + Math.abs(shade)*.018,.76,.43+Math.abs(shade)*.13);
     for(let vertex=0;vertex<3;vertex++) waterColors.push(color.r,color.g,color.b);
 }
 waterGeometry.setAttribute('color',new THREE.Float32BufferAttribute(waterColors,3));
@@ -63,21 +66,32 @@ const waterMaterial = new THREE.ShaderMaterial({
     uniforms:{time:{value:0}},
     vertexShader:`uniform float time; varying vec3 facetColor; varying float wave; varying vec2 waterXY;
         void main(){vec3 p=position; facetColor=color; waterXY=vec2(p.x,-p.y-25.0);
-            wave=sin(p.x*.22+time*.95)*.34+cos(p.y*.25+time*.75)*.24+sin((p.x+p.y)*.12-time*.65)*.12;
+            wave=sin((p.x-p.y*.3)*.24-time*1.15)*.17+cos(p.y*.32-time*.85)*.11+sin((p.x+p.y)*.17-time*1.3)*.07;
             p.z+=wave; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
-    fragmentShader:`varying vec3 facetColor; varying float wave; varying vec2 waterXY;
-        void main(){ vec2 q=waterXY;
-            bool center=abs(q.x)<28.5 && q.y>-44.5 && q.y<26.5;
-            bool sides=abs(q.x)>39.5 && abs(q.x)<64.5 && q.y>-65.5 && q.y<45.5;
-            bool north=abs(q.x)<64.5 && q.y>-92.0 && q.y<-54.0;
-            bool south=abs(q.x)<64.5 && q.y>36.0 && q.y<56.0;
-            if(center || sides || north || south) discard;
-            gl_FragColor=vec4(facetColor*(.98+wave*.22),1.0);}`
+    fragmentShader:`uniform float time; varying vec3 facetColor; varying float wave; varying vec2 waterXY;
+        float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+        float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);
+            return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+        void main(){vec2 q=waterXY;
+            if(abs(q.x)<65.0 && q.y>-92.5 && q.y<56.5) discard;
+            // Translate surface patterns steadily along the same current direction.
+            vec2 flow=q-vec2(time*1.8,time*.45);
+            float broad=noise(flow*.085);
+            float ripple=sin(flow.y*1.7+noise(flow*.18)*5.0);
+            float streak=smoothstep(.91,.995,ripple)*smoothstep(.48,.78,noise(vec2(flow.x*.3,flow.y*.65)));
+            float shore=min(abs(abs(q.x)-65.0),min(abs(q.y+92.5),abs(q.y-56.5)));
+            float nearLand=(abs(q.x)<66.8 && q.y>-94.3 && q.y<58.3)?1.0:0.0;
+            float foam=nearLand*(1.0-smoothstep(.2,1.6,shore))*smoothstep(.38,.67,noise(flow*.8));
+            vec3 turquoise=mix(facetColor,vec3(.32,.65,.95),broad*.55);
+            turquoise+=vec3(.10,.16,.25)*smoothstep(.62,.9,broad)+wave*.10;
+            turquoise=mix(turquoise,vec3(.77,.90,1.0),streak*.65);
+            turquoise=mix(turquoise,vec3(.92,.97,1.0),foam*.85);
+            gl_FragColor=vec4(turquoise,1.0);}`
 });
 const river=new THREE.Mesh(waterGeometry,waterMaterial);
 river.rotation.x=-Math.PI/2;river.position.set(0,-2.15,-25);scene.add(river);
 const shoreline=[];
-for(const [w,d,x,z] of [[57,.45,0,-44.6],[57,.45,0,26.6],[.45,70,-28.6,-9],[.45,70,28.6,-9]]) {
+for(const [w,d,x,z] of [[130,.45,0,-92.8],[130,.45,0,56.8],[.45,149,-65.3,-18],[.45,149,65.3,-18]]) {
     const foam=new THREE.Mesh(new THREE.BoxGeometry(w,.025,d),new THREE.MeshBasicMaterial({color:0xe4faff,transparent:true,opacity:.65}));
     foam.position.set(x,-2.02,z);scene.add(foam);shoreline.push(foam);
 }
@@ -163,17 +177,16 @@ for(const x of [-42,42]) for(const z of [-42,-18,8,29]) {
     cylinder(district,.1,.18,1.2,x,-.8,z,0x76604b,7);
     const canopy=sphere(district,.8,x,.3,z,0x8fa76c);canopy.scale.y=1.3;
 }
-// Four level bridges connect the project island to the city's road grid.
-for(const [w,d,x,z] of [[8,12,0,-49],[8,12,0,31],[13,8,-34,0],[13,8,34,0]]) {
-    box(scene,w,.5,d,x,-.09,z,0x778593);
-    box(scene,w-.3,.06,d-.3,x,.19,z,0x414954);
-    if(w<d) {
-        for(const dx of [-w/2,w/2])box(scene,.16,.5,d,x+dx,.49,z,0xc5d0d4);
-        for(let dz=-d/2+1;dz<d/2;dz+=3)box(scene,.13,.02,1,x,.24,z+dz,0xf2eee0);
-    } else {
-        for(const dz of [-d/2,d/2])box(scene,w,.5,.16,x,.49,z+dz,0xc5d0d4);
-        for(let dx=-w/2+1;dx<w/2;dx+=3)box(scene,1,.02,.13,x+dx,.24,z,0xf2eee0);
-    }
+// Streets and sidewalks link the portfolio plaza directly to the surrounding districts.
+for(const x of [-34,34]) {
+    box(scene,7,.06,104,x,.19,-9,0x414954);
+    for(const dx of [-4.4,4.4])box(scene,1.7,.08,104,x+dx,.17,-9,0xb5bfc7);
+    box(scene,20,.06,7,x,.19,0,0x414954);
+}
+for(const z of [-49,31]) {
+    box(scene,99,.06,7,0,.19,z,0x414954);
+    for(const dz of [-4.4,4.4])box(scene,99,.08,1.7,0,.17,z+dz,0xb5bfc7);
+    box(scene,7,.06,18,0,.19,z,0x414954);
 }
 cityObstacles.push({x:-12,z:-75,w:6,d:6},{x:20,z:-82,w:7,d:7},{x:-31,z:-72,w:5,d:5},{x:38,z:-76,w:7,d:6},{x:-42,z:-74,w:5.5,d:5.5},{x:42,z:-86,w:6,d:7});
 // Traffic loops on the city roads, separated from the playable island by water.
@@ -298,7 +311,7 @@ function animateClouds(dt) {
     }
 }
 // Tiny Liberty Island in the side canal, separate from the playable stations.
-const libertyIsland=new THREE.Group();libertyIsland.position.set(-34,-1.7,8);scene.add(libertyIsland);
+const libertyIsland=new THREE.Group();libertyIsland.position.set(-82,-1.7,35);libertyIsland.scale.setScalar(2.2);scene.add(libertyIsland);
 cylinder(libertyIsland,3.1,3.6,.65,0,.2,0,0x778a67,12);
 cylinder(libertyIsland,3.15,3.6,.2,0,-.13,0,0xabb8b0,12);
 box(libertyIsland,2.4,.7,2.4,0,.85,0,0xc5bca2);
@@ -336,10 +349,10 @@ for(let i=0;i<3;i++) {
 function animateBoats(time) {
     for(const b of boats) {
         const phase=time*.14+b.index*2,travel=Math.sin(phase),direction=Math.cos(phase)>0?1:-1;
-        if(b.index===0)b.mesh.position.set(travel*22,-1.93,30.1);
-        else if(b.index===1)b.mesh.position.set(travel*25,-1.93,-49.5);
-        else b.mesh.position.set(34.2,-1.93,-21+travel*14);
-        b.mesh.rotation.y=b.index===2?(direction>0?0:Math.PI):(direction>0?Math.PI/2:-Math.PI/2);
+        if(b.index===0)b.mesh.position.set(travel*48,-1.93,65);
+        else if(b.index===1)b.mesh.position.set(-70,-1.93,-30+travel*42);
+        else b.mesh.position.set(74,-1.93,-18+travel*54);
+        b.mesh.rotation.y=b.index!==0?(direction>0?0:Math.PI):(direction>0?Math.PI/2:-Math.PI/2);
         b.mesh.position.y+=Math.sin(time*1.3+b.index)*.08;
         b.mesh.rotation.z=Math.sin(time*1.1+b.index)*.025;
         b.wake.material.opacity=.28+Math.abs(Math.cos(phase))*.18;
@@ -458,7 +471,7 @@ for(const side of [-1,1]) {
     box(arm,.14,.14,.035,0,-.47,.23,accent);
     box(arm,.29,.21,.30,0,-.71,.04,joints);arms.push(arm);
 }
-avatar.scale.setScalar(1.15);
+avatar.scale.setScalar(2.3);
 const car=new THREE.Group(); player.add(car); car.visible=false;
 // A custom faceted shell, with narrow front and broad mid-engine rear shoulders.
 function trackShell() {
@@ -509,7 +522,7 @@ for(const model of [avatar,car])model.traverse(object=>{
     }
 });
 const shadow = new THREE.Mesh(new THREE.CircleGeometry(.7, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .13, depthWrite: false })); shadow.rotation.x = -Math.PI / 2; shadow.position.y = .025; player.add(shadow);
-function setMode(value) { mode = value; avatar.scale.setScalar(1.35); avatar.visible = mode === 'walk'; car.visible = mode === 'drive'; speed = 0; document.querySelector('#walk').classList.toggle('active', mode === 'walk'); document.querySelector('#drive').classList.toggle('active', mode === 'drive'); document.querySelector('#walk').setAttribute('aria-pressed', mode === 'walk'); document.querySelector('#drive').setAttribute('aria-pressed', mode === 'drive'); host.focus({ preventScroll: true }) }
+function setMode(value) { mode = value; avatar.visible = mode === 'walk'; car.visible = mode === 'drive'; speed = 0; document.querySelector('#walk').classList.toggle('active', mode === 'walk'); document.querySelector('#drive').classList.toggle('active', mode === 'drive'); document.querySelector('#walk').setAttribute('aria-pressed', mode === 'walk'); document.querySelector('#drive').setAttribute('aria-pressed', mode === 'drive'); host.focus({ preventScroll: true }) }
 document.querySelector('#walk').onclick = () => setMode('walk'); document.querySelector('#drive').onclick = () => setMode('drive'); document.querySelector('#reset').onclick = () => { clearInput(); player.position.set(0, .25, 6); host.focus({ preventScroll: true }) }; document.querySelector('#interact').onclick = () => { if (activeProject) projectDetails(activeProject) };
 const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight']); window.addEventListener('keydown', e => { if (dialog.open) return; if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return; if (movementKeys.has(e.code)) { e.preventDefault(); keys.add(e.code); destination = null } if (!e.repeat && e.code === 'KeyE' && activeProject) { e.preventDefault(); projectDetails(activeProject) } if (!e.repeat && e.code === 'KeyV') { e.preventDefault(); setMode(mode === 'walk' ? 'drive' : 'walk') } }); window.addEventListener('keyup', e => keys.delete(e.code)); window.addEventListener('blur', clearInput); document.addEventListener('visibilitychange', clearInput);
 const joystick = document.querySelector('#joystick');
@@ -564,7 +577,7 @@ function resize() { const aspect = innerWidth / innerHeight, size = Math.max(46,
     renderer.setSize(innerWidth, innerHeight) } window.addEventListener('resize', resize); resize();
 function frame(now) {
     requestAnimationFrame(frame); if (document.hidden) { previous = now; return } const skyDt = Math.max(0,(now - previous) / 1000); const dt = Math.min(skyDt, .04); previous = now; elapsed += dt; if (!reduced) { animateCity(elapsed); animateBoats(elapsed); } waterMaterial.uniforms.time.value = reduced ? 0 : elapsed; for (let i=0;i<shoreline.length;i++) shoreline[i].material.opacity = reduced ? .65 : .55 + Math.sin(elapsed*1.2+i)*.12;  motion.set(0, 0, 0); if (!dialog.open) { const horizontal = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')) + stick.x; const vertical = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + stick.y; motion.addScaledVector(right, horizontal).addScaledVector(forward, vertical); if (destination && !motion.lengthSq()) { motion.subVectors(destination, player.position); motion.y = 0; if (motion.length() < .25) { destination = null; motion.set(0, 0, 0) } } }
-    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 13 : 9); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed * (stick.pointer !== null && !keys.size ? Math.hypot(stick.x, stick.y) : 1) : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, [...obstacles,...traffic.map(c=>({x:c.mesh.position.x,z:c.mesh.position.z,w:2.6,d:2.6}))], mode === 'drive' ? 1.8 : .65); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
+    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 13 : 9); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed * (stick.pointer !== null && !keys.size ? Math.hypot(stick.x, stick.y) : 1) : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, [...obstacles,...traffic.map(c=>({x:c.mesh.position.x,z:c.mesh.position.z,w:2.6,d:2.6}))], mode === 'drive' ? 1.8 : 1.15); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
     avatar.position.y = moving && !reduced ? Math.abs(Math.sin(phase)) * .07 : 0; legs.forEach((leg, i) => leg.rotation.x = moving ? Math.sin(phase + i * Math.PI) * .48 : 0); arms.forEach((arm, i) => arm.rotation.x = moving ? -Math.sin(phase + i * Math.PI) * .4 : 0); if (moving) wheels.forEach(w => w.rotation.x += dt * speed * 2.6);
     if (!reduced) for (const a of animated) { if (a.kind === 'agent') { a.mesh.position.x = Math.cos(a.a + elapsed * .18) * a.r; a.mesh.position.z = Math.sin(a.a + elapsed * .22) * a.r } else if (a.kind === 'cloud') a.mesh.position.x = Math.sin(elapsed * .55) * .15 }
     const wanted = new THREE.Vector3(player.position.x * .55, 0, -10 + player.position.z * .5); focus.lerp(wanted, reduced ? 1 : 1 - Math.exp(-dt * 2)); camera.position.copy(focus).add(offset); camera.lookAt(focus); camera.updateMatrixWorld(); animateClouds(skyDt);
