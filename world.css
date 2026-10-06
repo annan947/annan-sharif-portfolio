@@ -950,3 +950,10 @@ dialog { border:3px solid white; box-shadow:8px 8px 0 #e82e48; }.project-row { b
 .station-label small { display:none; }.station-label .number { padding:4px; font-size:10px; }
 .station-label>span:last-child { margin-left:3px; }
 @media(max-width:650px) { .station-label { padding:4px 6px; max-width:125px; font-size:10px; gap:4px; }.station-label .number { font-size:9px; padding:3px; } }
+
+/* Match the Reset and help buttons to the angled mode picker. */
+.toolbar > button {
+  transform: skew(-8deg);
+  font-style: italic;
+  font-weight: 700;
+}
