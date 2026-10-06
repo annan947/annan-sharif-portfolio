@@ -1,8 +1,8 @@
 import * as THREE from './vendor/three.module.js';
-import { projects } from './projects.js?v=20261005-mecha-final';
-import { experiences } from './experience.js?v=20261005-mecha-final';
+import { projects } from './projects.js?v=20261006-clear-sky';
+import { experiences } from './experience.js?v=20261006-clear-sky';
 const stations = [...projects, ...experiences];
-import { move, nearestProject } from './movement.js?v=20261005-mecha-final';
+import { move, nearestProject, onTerrain } from './movement.js?v=20261006-clear-sky';
 
 const host = document.querySelector('#world'), dialog = document.querySelector('#details');
 const keys = new Set(), visited = new Set(); let activeProject = null, mode = 'walk', destination = null, speed = 0, phase = 0;
@@ -29,25 +29,326 @@ document.querySelector('#soundless-help').onclick = () => openDialog('<p class="
 let renderer; try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' }) } catch (e) { document.querySelector('#loading-text').textContent = '3D is unavailable in this browser. Open the classic portfolio below.'; throw e }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x09090d); host.append(renderer.domElement);
 renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); document.querySelector('#loading').classList.remove('hidden'); document.querySelector('#loading-text').textContent = 'The 3D view paused. Reload this page, or use the classic portfolio.' });
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x09090d); const camera = new THREE.OrthographicCamera(-40, 40, 28, -28, .1, 200); const offset = new THREE.Vector3(29, 36, 37); const focus = new THREE.Vector3();
-scene.add(new THREE.HemisphereLight(0xffffff, 0x434359, 2.6)); const sunlight = new THREE.DirectionalLight(0xf6eaff, 3.1); sunlight.position.set(-22, 45, 20); sunlight.castShadow = true; sunlight.shadow.mapSize.set(2048, 2048); Object.assign(sunlight.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 100 }); sunlight.shadow.normalBias = .035; sunlight.shadow.bias = -.0003; scene.add(sunlight);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x111a2a); const camera = new THREE.OrthographicCamera(-40, 40, 28, -28, .1, 350); const offset = new THREE.Vector3(29, 36, 37).multiplyScalar(2.7); const focus = new THREE.Vector3();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x434359, 2.6)); const sunlight = new THREE.DirectionalLight(0xf6eaff, 3.1); sunlight.position.set(-35, 55, -40); sunlight.castShadow = true; sunlight.shadow.mapSize.set(2048, 2048); Object.assign(sunlight.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 100 }); sunlight.shadow.normalBias = .035; sunlight.shadow.bias = -.0003; scene.add(sunlight);
+const cityObstacles=[]; let actorPosition=null;
 const materials = new Map(); function mat(c) { if (!materials.has(c)) materials.set(c, new THREE.MeshStandardMaterial({ color: c, roughness: .84 })); return materials.get(c) }
 function box(parent, w, h, d, x, y, z, c) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m }
 function cylinder(parent, r1, r2, h, x, y, z, c, n = 12) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, n), mat(c)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m }
 function sphere(parent, r, x, y, z, c) { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat(c)); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m }
 function line(parent, points, color) { const g = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(...p))); const m = new THREE.Line(g, new THREE.LineBasicMaterial({ color })); parent.add(m); return m }
-// The island: industrial paths, signal towers, and four distinct exhibit pavilions.
-box(scene, 56, 1.6, 70, 0, -1, -9, 0x16161e); box(scene, 55.6, .35, 69.6, 0, -.05, -9, 0x24242e); box(scene, 57, .25, 71, 0, -1.75, -9, 0x0e0e14);
-box(scene, 53, .06, 4.2, 0, .17, 0, 0x393944); box(scene, 4.2, .06, 67, 0, .17, -9, 0x393944);
-for (const x of [-13, 13]) box(scene, 2.7, .05, 42, x, .17, 0, 0x393944);
-for (const z of [-5, 17]) box(scene, 32, .05, 2.7, 0, .17, z, 0x393944);
-for (let z = -22; z < 24; z += 3)box(scene, .13, .025, 1.1, 0, .22, z, 0xff354d);
-for (let x = -24; x < 25; x += 3)box(scene, 1.1, .025, .13, x, .22, 0, 0xff354d);
-box(scene, 43, .06, 3, 0, .17, -24, 0x393944);
-for (const x of [-18, 18]) box(scene, 2.7, .06, 19, x, .17, -15, 0x393944);
+// One continuous industrial island with a waterfront all around it.
+box(scene, 56, 1.6, 70, 0, -1, -9, 0x16161e);
+box(scene, 55.6, .35, 69.6, 0, -.05, -9, 0x8995a3);
+box(scene, 57, .25, 71, 0, -1.75, -9, 0x0e0e14);
+box(scene, 53, .06, 4.2, 0, .17, 0, 0x414954);
+box(scene, 4.2, .06, 67, 0, .17, -9, 0x414954);
+for (const x of [-13, 13]) box(scene, 2.7, .05, 42, x, .17, 0, 0x414954);
+for (const z of [-3, 17]) box(scene, 32, .05, 2.7, 0, .17, z, 0x414954);
+box(scene, 43, .06, 3, 0, .17, -24, 0x414954);
+for (const x of [-18,18]) box(scene, 2.7, .06, 19, x, .17, -15, 0x414954);
+for (let z = -25; z < 24; z += 3) box(scene, .13, .025, 1.1, 0, .22, z, 0xff354d);
+for (let x = -24; x < 25; x += 3) box(scene, 1.1, .025, .13, x, .22, 0, 0xff354d);
+// Broad blue triangular facets, with continuous animated wave heights.
+const waterGeometry = new THREE.PlaneGeometry(240,240,48,48).toNonIndexed();
+const waterColors=[];
+for(let triangle=0;triangle<waterGeometry.attributes.position.count/3;triangle++) {
+    const shade=(Math.sin(triangle*127.1+311.7)*43758.5453)%1;
+    const color=new THREE.Color().setHSL(.55 + Math.abs(shade)*.025,.65,.43+Math.abs(shade)*.17);
+    for(let vertex=0;vertex<3;vertex++) waterColors.push(color.r,color.g,color.b);
+}
+waterGeometry.setAttribute('color',new THREE.Float32BufferAttribute(waterColors,3));
+const waterMaterial = new THREE.ShaderMaterial({
+    vertexColors:true,
+    uniforms:{time:{value:0}},
+    vertexShader:`uniform float time; varying vec3 facetColor; varying float wave; varying vec2 waterXY;
+        void main(){vec3 p=position; facetColor=color; waterXY=vec2(p.x,-p.y-25.0);
+            wave=sin(p.x*.22+time*.95)*.34+cos(p.y*.25+time*.75)*.24+sin((p.x+p.y)*.12-time*.65)*.12;
+            p.z+=wave; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
+    fragmentShader:`varying vec3 facetColor; varying float wave; varying vec2 waterXY;
+        void main(){ vec2 q=waterXY;
+            bool center=abs(q.x)<28.5 && q.y>-44.5 && q.y<26.5;
+            bool sides=abs(q.x)>39.5 && abs(q.x)<64.5 && q.y>-65.5 && q.y<45.5;
+            bool north=abs(q.x)<64.5 && q.y>-92.0 && q.y<-54.0;
+            bool south=abs(q.x)<64.5 && q.y>36.0 && q.y<56.0;
+            if(center || sides || north || south) discard;
+            gl_FragColor=vec4(facetColor*(.98+wave*.22),1.0);}`
+});
+const river=new THREE.Mesh(waterGeometry,waterMaterial);
+river.rotation.x=-Math.PI/2;river.position.set(0,-2.15,-25);scene.add(river);
+const shoreline=[];
+for(const [w,d,x,z] of [[57,.45,0,-44.6],[57,.45,0,26.6],[.45,70,-28.6,-9],[.45,70,28.6,-9]]) {
+    const foam=new THREE.Mesh(new THREE.BoxGeometry(w,.025,d),new THREE.MeshBasicMaterial({color:0xe4faff,transparent:true,opacity:.65}));
+    foam.position.set(x,-2.02,z);scene.add(foam);shoreline.push(foam);
+}
+// Dense NYC-inspired background: mixed massing, setbacks, spires and blue glass.
+const skyline=new THREE.Group();skyline.position.set(0,-.1,-66);scene.add(skyline);
+box(skyline,114,.8,34,0,-.4,-6,0x677580);
+let towerIndex=0;
+for(let row=0;row<3;row++)for(let col=0;col<17;col++) {
+    const x=-51+col*6.4+(row%2)*2, z=-row*9;
+    const h= row===0 ? 3+(col*7%11) : 5+(col*11+row*5)%21;
+    const w=3.5+(col%3)*.65, d=4+(row+col)%3;
+    const palette=[0x899dad,0xb6c4cc,0x728a9c,0xa0b2c0,0xced3d2];
+    const color=palette[(col+row)%palette.length];
+    box(skyline,w,h,d,x,h/2,z,color); cityObstacles.push({x,z:z-66,w:w+.4,d:d+.4});
+    box(skyline,w*.68,.7,d*.7,x,h+.35,z,0x6f8394);
+    for(const dx of [-w*.27,w*.27])box(skyline,.55,h*.75,.045,x+dx,h*.48,z+d/2+.025,0x3c648c);
+    if((col+row)%4===0) {
+        box(skyline,w*.76,h*.2,d*.76,x,h*1.1,z,color);
+        box(skyline,w*.5,h*.12,d*.5,x,h*1.26,z,0xbcc9d1);
+        cylinder(skyline,.04,.1,2.4,x,h*1.32+1.2,z,0xdce4e5,6);
+    } else if((col+row)%5===0) cylinder(skyline,0,w*.45,2,x,h+1,z,0xb5c5d0,4);
+    towerIndex++;
+}
+// Recognizable landmark silhouettes, interpreted in low-poly geometry.
+for(const [w,h,y] of [[5.3,18,9],[3.9,5,20.5],[2.5,3,24.5]])box(skyline,w,h,w,-12,y,-9,0xb5c2ca);
+cylinder(skyline,.08,.18,4,-12,28,-9,0xe1e6e3,6);
+const oneWorld=new THREE.Mesh(new THREE.CylinderGeometry(1.25,3.3,27,4),mat(0x9ab4c8));oneWorld.position.set(20,13.5,-16);oneWorld.rotation.y=Math.PI/4;skyline.add(oneWorld);
+cylinder(skyline,.055,.12,4,20,29,-16,0xe0e9ed,6);
+// Distinct skyline landmarks, interpreted as original low-poly silhouettes.
+// Chrysler-inspired Art Deco tower with a tiered, metallic crown.
+const chrysler=new THREE.Group();chrysler.position.set(-31,0,-72);scene.add(chrysler);
+box(chrysler,4.5,17,4.5,0,6.7,0,0xb6c2cb);
+for(const x of [-1.6,-.8,0,.8,1.6])box(chrysler,.14,15,.07,x,6.5,2.3,0x627e96);
+for(let tier=0;tier<5;tier++)cylinder(chrysler,2-tier*.34,2.35-tier*.34,1.05,0,15.75+tier*.95,0,0xdce4e8,8);
+cylinder(chrysler,0,.6,3,0,21.2,0,0xeaf0f1,8);
+cylinder(chrysler,.035,.065,2.5,0,23.6,0,0xd9e4eb,6);
+// Chase-inspired stepped glass office tower.
+const chase=new THREE.Group();chase.position.set(38,0,-76);scene.add(chase);
+for(let tier=0;tier<4;tier++) {
+    const w=6.7-tier*1.2,y=2+tier*5.4;
+    box(chase,w,6,5.5,0,y,0,0x527287);
+    for(let k=0;k<5;k++)box(chase,w+.05,.075,5.55,0,y-2.2+k,0,0xb9c9d0);
+    for(const x of [-w*.38,0,w*.38])box(chase,.09,6,.09,x,y,2.8,0xd2dde1);
+}
+// A round tower and asymmetrical setbacks break the repeating skyline rhythm.
+cylinder(skyline,2.1,2.6,15,-42,7.5,-8,0x95adbd,10);
+cylinder(skyline,1.6,2.1,3,-42,16.5,-8,0xcbd6dc,10);
+box(skyline,5,13,6,42,6.5,-20,0xa1b2bf);
+box(skyline,2.6,8,3,43,17,-20.8,0x768ea0);
+// City districts wrap around a clear canal, with low foreground waterfront blocks.
+const district=new THREE.Group();district.position.y=1.7;scene.add(district);
+for(const x of [-52,52]) {
+    box(district,25,1,111,x,-2.1,-10,0x56606c);
+    box(district,7,.08,101,x- Math.sign(x)*5,-1.55,-8,0x414954);
+    box(district,2,.08,101,x-Math.sign(x)*8.6,-1.51,-8,0xa0a9ad);
+}
+for(const [z,depth] of [[-73,38],[46,20]]) {
+    box(district,129,1,depth,0,-2.1,z,0x56606c);
+    box(district,99,.08,7,0,-1.55,z<0?-58:43,0x414954);
+    box(district,99,.08,2,0,-1.51,z<0?-54.5:39.5,0xa0a9ad);
+}
+function cityBlock(x,z,height,index) {
+    const color=[0xa7b4bd,0x7f929f,0xc2c8c8,0x8093a5,0x929caa][index%5];
+    box(district,5.8,height,5.5,x,height/2-1.5,z,color); cityObstacles.push({x,z,w:6.2,d:6});
+    box(district,6.1,.28,5.8,x,height-1.38,z,0xd8d9d2);
+    box(district,2.5,.65,2,x+1,height-.96,z-.5,0x637482);
+    if(height>8) {box(district,4,height*.22,3.8,x,height*1.11-1.5,z,color);}
+    // Blue inset glazing and light pilasters give each tower a readable silhouette.
+    for(const dx of [-1.7,0,1.7]) {
+        box(district,.8,height*.7,.05,x+dx,height*.48-1.5,z+2.78,0x3e607d);
+        box(district,.1,height*.72,.08,x+dx+.48,height*.48-1.5,z+2.82,0xd4dadd);
+    }
+}
+let blockIndex=0;
+for(const x of [-58,58]) for(let z=-45;z<37;z+=10) cityBlock(x,z,z< -20?7+(blockIndex%3)*2:3.2+(blockIndex%3)*.8,blockIndex++);
+for(let x=-55;x<60;x+=10) {
+    cityBlock(x,-80,10+(blockIndex*7%13),blockIndex++);
+    cityBlock(x,51,2.5+(blockIndex%3)*.6,blockIndex++);
+}
+// Waterfront parks and walking paths break up the street grid.
+for(const x of [-42,42]) for(const z of [-42,-18,8,29]) {
+    box(district,3.8,.09,5,x,-1.46,z,0x758a65);
+    cylinder(district,.1,.18,1.2,x,-.8,z,0x76604b,7);
+    const canopy=sphere(district,.8,x,.3,z,0x8fa76c);canopy.scale.y=1.3;
+}
+// Four level bridges connect the project island to the city's road grid.
+for(const [w,d,x,z] of [[8,12,0,-49],[8,12,0,31],[13,8,-34,0],[13,8,34,0]]) {
+    box(scene,w,.5,d,x,-.09,z,0x778593);
+    box(scene,w-.3,.06,d-.3,x,.19,z,0x414954);
+    if(w<d) {
+        for(const dx of [-w/2,w/2])box(scene,.16,.5,d,x+dx,.49,z,0xc5d0d4);
+        for(let dz=-d/2+1;dz<d/2;dz+=3)box(scene,.13,.02,1,x,.24,z+dz,0xf2eee0);
+    } else {
+        for(const dz of [-d/2,d/2])box(scene,w,.5,.16,x,.49,z+dz,0xc5d0d4);
+        for(let dx=-w/2+1;dx<w/2;dx+=3)box(scene,1,.02,.13,x+dx,.24,z,0xf2eee0);
+    }
+}
+cityObstacles.push({x:-12,z:-75,w:6,d:6},{x:20,z:-82,w:7,d:7},{x:-31,z:-72,w:5,d:5},{x:38,z:-76,w:7,d:6},{x:-42,z:-74,w:5.5,d:5.5},{x:42,z:-86,w:6,d:7});
+// Traffic loops on the city roads, separated from the playable island by water.
+function loopPosition(distance,xExtent,zNorth,zSouth) {
+    const width=xExtent*2,depth=zSouth-zNorth,total=2*(width+depth);
+    let d=((distance%total)+total)%total;
+    if(d<width)return {x:-xExtent+d,z:zNorth,angle:Math.PI/2}; d-=width;
+    if(d<depth)return {x:xExtent,z:zNorth+d,angle:0};d-=depth;
+    if(d<width)return {x:xExtent-d,z:zSouth,angle:-Math.PI/2};d-=width;
+    return {x:-xExtent,z:zSouth-d,angle:Math.PI};
+}
+const traffic=[];
+for(let i=0;i<16;i++) {
+    const vehicle=new THREE.Group();scene.add(vehicle);
+    const color=[0xe8b93f,0xe8b93f,0xd85452,0xcdd6db,0x456681,0x353c46][i%6];
+    box(vehicle,1.2,.4,2.3,0,.5,0,color);
+    box(vehicle,1,.48,1.1,0,.93,-.05,color);
+    box(vehicle,.86,.34,.03,0,.98,.52,0x2a465e);
+    box(vehicle,.86,.34,.03,0,.98,-.62,0x2a465e);
+    for(const x of [-.6,.6])for(const z of [-.75,.75]) {
+        const wheel=cylinder(vehicle,.25,.25,.12,x,.35,z,0x20242a,8);wheel.rotation.z=Math.PI/2;
+    }
+    for(const x of [-.36,.36])box(vehicle,.2,.12,.04,x,.54,1.17,0xffe6a1);
+    if(i%6<2)box(vehicle,.35,.1,.3,0,1.24,0,0xffe3a0);
+    traffic.push({mesh:vehicle,slot:Math.floor(i/2),lane:i%2,reverse:i%2===0});
+}
+// Railway joins both waterfronts and two supported station platforms.
+box(scene,133,.4,3.2,0,4,34,0x697d8f);
+for(const z of [33.2,34.8])box(scene,133,.09,.1,0,4.25,z,0xe3edf1);
+for(let x=-65;x<67;x+=1.8)box(scene,.18,.08,2.5,x,4.22,34,0x3d4f5f);
+for(let x=-63;x<66;x+=9)box(scene,.6,6.1,.6,x,1.1,34,0x677c8c);
+for(const x of [-59,59]) {
+    box(scene,13,.6,3.5,x,3.9,37.2,0xa9b6c1); cityObstacles.push({x,z:37.2,w:13,d:3.5},{x,z:42,w:3,d:8});
+    box(scene,13,.04,.2,x,4.23,35.55,0xefc34c);
+    // Stairs reach the city sidewalk behind the platform.
+    for(let step=0;step<18;step++)box(scene,3,.22,.5,x,.31+step*.22,45.5-step*.45,0xc2cbd0);
+    for(const dx of [-5,5])box(scene,.14,2.8,.14,x+dx,5.5,37.2,0x536778);
+    box(scene,13.5,.18,3.8,x,6.9,37.2,0x54718a);
+}
+for(const x of [-64,64]) {
+    box(scene,7,4,7,x,2.2,34,0x6b7e8e);
+    box(scene,7,.5,7,x,4.7,34,0xaebdc8);
+    // Dark tunnel mouth covers the entry and exit of each train car.
+    box(scene,.04,1.8,2.4,x+(x<0?3.51:-3.51),4.5,34,0x182431);
+    cityObstacles.push({x,z:34,w:7,d:7});
+}
+const trainCars=[];
+for(let i=0;i<4;i++) {
+    const carriage=new THREE.Group();scene.add(carriage);
+    box(carriage,1.6,1.15,5.2,0,.83,0,0xc5d0d6);
+    box(carriage,1.68,.25,5.3,0,1.48,0,0xe2e6e4);
+    for(const x of [-.82,.82]) {
+        box(carriage,.04,.18,5.1,x,.56,0,0x397fb0);
+        for(const z of [-1.8,-.6,.6,1.8])box(carriage,.04,.45,.68,x,1.08,z,0x304c67);
+    }
+    box(carriage,1.22,.43,.04,0,1.07,2.62,0x304c67);
+    for(const x of [-.5,.5])box(carriage,.17,.13,.04,x,.6,2.63,0xffe0a5);
+    trainCars.push(carriage);
+}
+const laneProgress=[0,0]; let lastCityTime=0;
+function trafficPoint(car,progress) {
+    const outer=car.lane===0, extent=outer?48.5:45.5,north=outer?-59.5:-56.5,south=outer?44.5:41.5;
+    const total=2*(2*extent+south-north),sign=car.reverse?-1:1;
+    const point=loopPosition(car.slot*total/8+progress*sign,extent,north,south);
+    return {...point,angle:point.angle+(car.reverse?Math.PI:0)};
+}
+function animateCity(time) {
+    const dt=Math.max(0,Math.min(time-lastCityTime,.04));lastCityTime=time;
+    for(let lane=0;lane<2;lane++) {
+        const proposed=laneProgress[lane]+dt*6;
+        // A whole lane pauses together, preserving headway when the player blocks it.
+        const blocked=actorPosition && traffic.some(car=>{if(car.lane!==lane)return false;const p=trafficPoint(car,proposed);return Math.hypot(p.x-actorPosition.x,p.z-actorPosition.z)<4.8;});
+        if(!blocked)laneProgress[lane]=proposed;
+    }
+    for(const car of traffic) {const point=trafficPoint(car,laneProgress[car.lane]);car.mesh.position.set(point.x,.22,point.z);car.mesh.rotation.y=point.angle;}
+    // The entire train exits the viewport before wrapping, so cars stay connected.
+    const limit=80;
+    const trainX=((time*12+limit)%(2*limit))-limit;
+    trainCars.forEach((car,i)=>{car.position.set(trainX+(i-1.5)*6.4,4.3,34);car.rotation.y=Math.PI/2;// Hide each whole carriage before its nose touches either solid station entrance.
+        const tunnelInnerEdge=60.49, carriageHalfLength=2.65;
+        car.visible=Math.abs(car.position.x)+carriageHalfLength<tunnelInnerEdge;});
+}
+animateCity(0);
+// Faceted golden sun and a sparse spread of blue-white low-poly clouds.
+const sun=new THREE.Mesh(new THREE.IcosahedronGeometry(2.6,1),new THREE.MeshStandardMaterial({color:0xffee19,emissive:0xffbd00,emissiveIntensity:.65,roughness:1,flatShading:true}));
+sun.position.set(-18,13,-56);scene.add(sun);
+// A fixed sky camera keeps sky animation independent of player/city camera motion.
+const skyScene=new THREE.Scene(), skyCamera=camera.clone();
+skyCamera.position.copy(offset);skyCamera.lookAt(0,0,0);skyCamera.updateMatrixWorld();
+skyScene.add(new THREE.HemisphereLight(0xffffff,0x434359,2.6));
+const skyLight=new THREE.DirectionalLight(0xf6eaff,3.1);skyLight.position.set(-35,55,-40);skyScene.add(skyLight);
+skyScene.add(sun);
+const skyClouds=[];
+const cloudMaterial=new THREE.MeshStandardMaterial({color:0xe1e8f5,roughness:1,flatShading:true});
+for(const [x,y,z,scale] of [[-25,11,-55,.9],[-11,11,-57,.8],[26,12,-60,.8],[-48,8,-20,.65],[42,9,2,.6],[-36,10,-38,.6],[15,16,-72,.65],[48,13,-35,.65],[-5,10,37,.55]]) {
+    const cloud=new THREE.Group();cloud.position.set(x,y,z);cloud.scale.set(scale*1.2,scale*.7,scale*.85);
+    for(const [dx,dy,dz,r] of [[-2.7,0,0,1.6],[-.9,.5,0,2.4],[1.5,.2,0,2.1],[3.2,-.3,.2,1.4],[.2,-.5,1,1.7]]) {
+        const puff=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),cloudMaterial);puff.position.set(dx,dy,dz);cloud.add(puff);
+    }
+    skyScene.add(cloud);skyClouds.push({mesh:cloud,x,z,flightReady:false});
+}
+// Camera-aligned sky lanes stay above the tallest skyline geometry.
+const cloudDirection=new THREE.Vector3(offset.z,0,-offset.x).normalize();
+const screenUp=new THREE.Vector3(0,1,0).projectOnPlane(offset).normalize();
+const skyDepth=offset.clone().normalize();
+skyClouds.forEach((cloud,index)=>{cloud.progress=index/skyClouds.length;cloud.lane=[.34,.47,.60][index%3];});
+function animateClouds(dt) {
+    const span=camera.right-camera.left;
+    const height=camera.top-camera.bottom;
+    const centerX=(camera.right+camera.left)/2;
+    const centerY=(camera.top+camera.bottom)/2;
+    // Higher, smaller sun; its own depth plane cannot intersect the clouds.
+    sun.position.set(0,0,0).addScaledVector(skyDepth,105)
+        .addScaledVector(cloudDirection,centerX+span*.025)
+        .addScaledVector(screenUp,centerY+height*.41);
+    for(const cloud of skyClouds) {
+        if(!reduced)cloud.progress=(cloud.progress+dt*4.5/(span+24))%1;
+        const x=cloud.progress*(span+24)-span/2-12;
+        cloud.mesh.position.set(0,0,0).addScaledVector(skyDepth,85)
+            .addScaledVector(cloudDirection,centerX+x)
+            .addScaledVector(screenUp,centerY+cloud.lane*height/2);
+    }
+}
+// Tiny Liberty Island in the side canal, separate from the playable stations.
+const libertyIsland=new THREE.Group();libertyIsland.position.set(-34,-1.7,8);scene.add(libertyIsland);
+cylinder(libertyIsland,3.1,3.6,.65,0,.2,0,0x778a67,12);
+cylinder(libertyIsland,3.15,3.6,.2,0,-.13,0,0xabb8b0,12);
+box(libertyIsland,2.4,.7,2.4,0,.85,0,0xc5bca2);
+box(libertyIsland,1.5,1.3,1.5,0,1.75,0,0xb2a991);
+const patina=0x77b3a1;
+cylinder(libertyIsland,.48,.9,2.5,0,3.5,0,patina,7);
+box(libertyIsland,.85,1.15,.55,0,4.4,0,patina);
+sphere(libertyIsland,.39,0,5.15,0,patina);
+// Raised torch arm and left-hand tablet.
+const raisedArm=box(libertyIsland,.27,1.55,.27,.63,5.13,0,patina);raisedArm.rotation.z=-.38;
+sphere(libertyIsland,.18,.9,5.83,0,patina);
+cylinder(libertyIsland,.09,.13,.65,.93,6.15,0,0x8da896,7);
+cylinder(libertyIsland,.24,.15,.3,.93,6.58,0,0xc9a75f,7);
+const flame=sphere(libertyIsland,.24,.93,6.87,0,0xffd147);flame.scale.y=1.6;
+const tablet=box(libertyIsland,.47,.75,.12,-.5,4.28,.34,0x91c1ac);tablet.rotation.z=-.18;
+for(let i=0;i<7;i++) {
+    const angle=-Math.PI*.85+i*Math.PI*1.7/6;
+    const spike=cylinder(libertyIsland,0,.08,.44,Math.sin(angle)*.38,5.47+Math.cos(angle)*.13,0,patina,5);
+    spike.rotation.z=-angle;
+}
+for(const x of [-1.7,1.7])box(libertyIsland,.8,.07,2,x,.59,0,0xb6baa8);
+// Small ferries glide through the canal and leave lightly animated wakes.
+const boats=[];
+for(let i=0;i<3;i++) {
+    const boat=new THREE.Group();scene.add(boat);
+    cylinder(boat,.6,.42,2.7,0,.15,0,0xf1f2eb,4).rotation.x=Math.PI/2;
+    box(boat,1.1,.28,2.4,0,.3,0,0xe1e7e8);
+    box(boat,.85,.55,1.15,0,.66,-.2,0xf1eee2);
+    box(boat,.74,.27,.05,0,.76,.4,0x49758b);
+    box(boat,.9,.1,1.3,0,.99,-.2,0xcf514a);
+    const wake=new THREE.Mesh(new THREE.PlaneGeometry(.9,2.7),new THREE.MeshBasicMaterial({color:0xe8fbff,transparent:true,opacity:.36,depthWrite:false}));
+    wake.rotation.x=-Math.PI/2;wake.position.set(0,-.04,-2.3);boat.add(wake);
+    boats.push({mesh:boat,wake,index:i});
+}
+function animateBoats(time) {
+    for(const b of boats) {
+        const phase=time*.14+b.index*2,travel=Math.sin(phase),direction=Math.cos(phase)>0?1:-1;
+        if(b.index===0)b.mesh.position.set(travel*22,-1.93,30.1);
+        else if(b.index===1)b.mesh.position.set(travel*25,-1.93,-49.5);
+        else b.mesh.position.set(34.2,-1.93,-21+travel*14);
+        b.mesh.rotation.y=b.index===2?(direction>0?0:Math.PI):(direction>0?Math.PI/2:-Math.PI/2);
+        b.mesh.position.y+=Math.sin(time*1.3+b.index)*.08;
+        b.mesh.rotation.z=Math.sin(time*1.1+b.index)*.025;
+        b.wake.material.opacity=.28+Math.abs(Math.cos(phase))*.18;
+    }
+}
+animateBoats(0);
 // Central plaza and welcome sculpture.
 cylinder(scene, 3.7, 3.7, .1, 0, .23, 0, 0x343440, 48); cylinder(scene, 1.7, 1.9, .45, 0, .5, -1.7, 0x545462, 32); const emblem = new THREE.Group(); emblem.position.set(0, 1.75, -1.7); scene.add(emblem); const torus = new THREE.Mesh(new THREE.TorusGeometry(.82, .20, 8, 32), mat(0xff354d)); emblem.add(torus); box(emblem, .3, 1.5, .3, .72, -.17, 0, 0xff354d); sphere(emblem, .2, 1.3, -.72, 0, 0xff354d);
-const obstacles = [{ x: 0, z: -1.7, w: 3.5, d: 3.5 }]; const animated = [];
+const obstacles = [...cityObstacles, { x: 0, z: -1.7, w: 3.5, d: 3.5 }]; const animated = [];
 // Signal pylons replace the landscape trees.
 function tree(x, z, scale = 1) {
     const g = new THREE.Group(); g.position.set(x,.2,z); g.scale.setScalar(scale); scene.add(g);
@@ -56,14 +357,15 @@ function tree(x, z, scale = 1) {
     for (let i=0;i<3;i++) box(g,.6,.18,.6,0,2.5+i*.45,0,0xff354d);
     box(g,1,.3,1,0,4,0,0xeeeeef);
 }
-for (const [x, z, s] of [[-24, -20, 1.1], [-22, -17, .7], [-4, -21, 1.2], [3, -22, .8], [22, -21, 1.2], [24, -18, .8], [-24, 7, 1], [-24, 12, .8], [-23, 21, 1.1], [-19, 23, .7], [22, 20, 1.1], [24, 16, .8], [4, 23, .85], [-3, 22, 1], [24, -3, .9], [-24, -4, .8]]) tree(x, z, s);
+for (const [x, z, s] of [[-24, -40, 1.1], [-22, -37, .7], [-9, -40, 1.2], [9, -40, .8], [22, -40, 1.2], [24, -37, .8], [-24, 7, 1], [-24, 12, .8], [-23, 21, 1.1], [-19, 23, .7], [22, 20, 1.1], [24, 16, .8], [4, 23, .85], [-3, 22, 1], [24, -3, .9], [-24, -4, .8]]) tree(x, z, s);
 function bench(x, z) { box(scene, 2.1, .13, .65, x, .8, z, 0x43434f); box(scene, 2.1, .65, .12, x, 1.15, z - .3, 0x43434f); for (const xx of [-.75, .75]) box(scene, .12, .6, .5, x + xx, .45, z, 0xff354d) } bench(-5, 4); bench(5, 4); bench(-5, -5); bench(5, -5);
-for (const [x, z] of [[-4, -16], [4, 16], [-21, 0], [21, 0]]) { cylinder(scene, .07, .09, 3, x, 1.65, z, 0x454552, 8); sphere(scene, .25, x, 3.3, z, 0xff354d); cylinder(scene, .4, .4, .12, x, .25, z, 0x292934) }
+for (const [x, z] of [[-5, -23], [4, 16], [-21, 0], [21, 0]]) { cylinder(scene, .07, .09, 3, x, 1.65, z, 0x454552, 8); sphere(scene, .25, x, 3.3, z, 0xff354d); cylinder(scene, .4, .4, .12, x, .25, z, 0x292934) }
 function label(p) { const b = document.createElement('button'); b.className = 'station-label'; b.style.setProperty('--station-color', p.css); b.innerHTML = `<span class="number">${p.number}</span><span>${p.title}<small>${p.category}</small></span><span>↗</span>`; b.setAttribute('aria-label', `Explore ${p.fullTitle}`); b.onclick = () => projectDetails(p); document.querySelector('#labels').append(b); return b }
 for (const x of [-24, -9, 9, 24]) tree(x, -39, .85);
 const labels = [];
+
 for (const p of stations) {
-    const g = new THREE.Group(); g.position.set(p.x, .2, p.z); scene.add(g); obstacles.push({ x: p.x, z: p.z, w: 8.2, d: 6.4 }); box(g, 9, .4, 7.4, 0, .2, 0, 0x373742); box(g, 8.2, .6, 6.4, 0, .7, 0, p.color); box(g, 8.1, .14, 6.3, 0, 1.07, 0, 0x555562); box(g, 2.2, .18, 1.1, 0, .1, 4, 0xff354d); const marker = cylinder(g, .8, .8, .04, 0, .03, 4.8, p.color, 32); animated.push({ kind: 'marker', mesh: marker });
+    const g = new THREE.Group(); g.position.set(p.x, .2, p.z); scene.add(g); obstacles.push({ x: p.x, z: p.z, w: 8.2, d: 6.4 }); box(g, 9, .4, 7.4, 0, .2, 0, 0xa2acb5); box(g, 8.2, .6, 6.4, 0, .7, 0, p.color); box(g, 8.1, .14, 6.3, 0, 1.07, 0, 0xc5cfd4); box(g, 2.2, .18, 1.1, 0, .1, 4, 0xff354d); const marker = cylinder(g, .8, .8, .04, 0, .03, 4.8, p.color, 32); animated.push({ kind: 'marker', mesh: marker });
     if (p.id === 'maze') { box(g, 7.3, .15, 5.5, 0, 1.22, 0, 0xded8ed); for (let r = 0; r < 5; r++)for (let c = 0; c < 7; c++) { if (r === 0 || r === 4 || c === 0 || c === 6 || ((r + c) % 3 === 0 && r !== 2)) box(g, .82, .65, .75, (c - 3) * .95, 1.6, (r - 2) * .98, 0xaaa0cc) } for (let i = 0; i < 6; i++)box(g, .38, .05, .28, -2.5 + i * .85, 1.35, 0, 0x688c68); box(g, 1, .07, .45, 2.8, 1.35, .55, 0xe1b969) }
     if (p.id === 'stock') { box(g, 6.8, 4.5, .4, 0, 3.2, -1.8, 0x344e44); box(g, 7, .2, .65, 0, 5.55, -1.8, p.color); for (let k = 0; k < 4; k++)line(g, [[-3, 1.8 + k * .8, -1.55], [3, 1.8 + k * .8, -1.55]], 0x668170); let seed = 19; for (let n = 0; n < 10; n++) { let y = 2.7; const pts = []; for (let i = 0; i < 30; i++) { seed = (seed * 16807) % 2147483647; y += (seed / 2147483647 - .44) * .28; pts.push([-3 + i * .205, Math.max(1.4, Math.min(5.2, y)), -1.53 + n * .003]) } line(g, pts, n % 3 === 0 ? 0xecd195 : 0x9cbd91) } for (let i = 0; i < 5; i++)box(g, .62, .4 + i * .34, .7, -2.2 + i * 1.1, 1.35 + i * .17, 1.6, p.color) }
     if (p.id === 'infection') { box(g, 6.4, .22, 4.4, 0, 1.25, 0, 0xd4e0c2); const dome = new THREE.Mesh(new THREE.SphereGeometry(2.35, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xe7f4e8, transparent: true, opacity: .22, roughness: .2, depthWrite: false })); dome.position.y = 1.4; g.add(dome); for (let i = 0; i < 17; i++) { const a = i * 2.4, r = .5 + (i % 4) * .42; const dot = sphere(g, .19, Math.cos(a) * r, 1.55, Math.sin(a) * r, i < 7 ? 0xdc8e7b : 0x6d9d77); animated.push({ kind: 'agent', mesh: dot, a, r }) } cylinder(g, .25, .25, 1.5, -3, 1.9, -1.5, 0xd59988); cylinder(g, .25, .25, 1, -3, 1.65, 1, 0x9aae89) }
@@ -94,11 +396,11 @@ for (const p of stations) {
         for (const x of [-2,0,2]) box(g,.55,.15,.55,x,1.3,1.6,p.color);
     }
     labels.push({ p, element: label(p), position: new THREE.Vector3(p.x, 6.5, p.z) });
-    const pin = document.createElement('button'); pin.style.left = `${(p.x + 28) / 56 * 100}%`; pin.style.top = `${(p.z + 44) / 70 * 100}%`; pin.style.background = p.css; pin.textContent = p.number; pin.setAttribute('aria-label', `Visit ${p.title}`); pin.onclick = () => { clearInput(); player.position.set(p.x, .25, p.z + 5.4); host.focus({ preventScroll: true }) }; document.querySelector('#map-stations').append(pin);
+    const pin = document.createElement('button'); pin.style.left = `${(p.x + 65) / 130 * 100}%`; pin.style.top = `${(p.z + 93) / 150 * 100}%`; pin.style.background = p.css; pin.textContent = p.number; pin.setAttribute('aria-label', `Visit ${p.title}`); pin.onclick = () => { clearInput(); player.position.set(p.x, .25, p.z + 5.4); host.focus({ preventScroll: true }) }; document.querySelector('#map-stations').append(pin);
 }
 // A low-poly explorer and compact electric buggy share the same movement controller.
 // Original armored explorer and track-focused supercar, built as outlined low-poly models.
-const player = new THREE.Group(); player.position.set(0, .25, 6); scene.add(player);
+const player = new THREE.Group(); player.position.set(0, .25, 6); actorPosition=player.position; scene.add(player);
 const avatar = new THREE.Group(); player.add(avatar);
 const armor=0xe8edf0, darkArmor=0x253664, trim=0xf2c948, joints=0x191c25, accent=0xdb3042;
 // Gundam-inspired segmented mecha: white plating, navy core, red feet, gold vents.
@@ -255,18 +557,47 @@ for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) {
     });
 }
 joystick.addEventListener('contextmenu', event => event.preventDefault());
-const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.25), hit = new THREE.Vector3(); renderer.domElement.addEventListener('pointerdown', e => { if (dialog.open) return; host.focus({ preventScroll: true }); mouse.set(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2); raycaster.setFromCamera(mouse, camera); if (raycaster.ray.intersectPlane(plane, hit)) destination = new THREE.Vector3(THREE.MathUtils.clamp(hit.x, -25, 25), .25, THREE.MathUtils.clamp(hit.z, -41, 23)) });
+const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.25), hit = new THREE.Vector3(); renderer.domElement.addEventListener('pointerdown', e => { if (dialog.open) return; host.focus({ preventScroll: true }); mouse.set(e.clientX / innerWidth * 2 - 1, 1 - e.clientY / innerHeight * 2); raycaster.setFromCamera(mouse, camera); if (raycaster.ray.intersectPlane(plane, hit) && onTerrain(hit.x,hit.z)) destination = new THREE.Vector3(THREE.MathUtils.clamp(hit.x, -62, 62), .25, THREE.MathUtils.clamp(hit.z, -90, 54)) });
 const forward = new THREE.Vector3(-offset.x, 0, -offset.z).normalize(), right = new THREE.Vector3(offset.z, 0, -offset.x).normalize(); const motion = new THREE.Vector3(), projected = new THREE.Vector3(); let previous = performance.now(), elapsed = 0;
-function resize() { const aspect = innerWidth / innerHeight, size = Math.max(34, 34 / aspect), shift = innerWidth > 1000 ? -4 : 0; camera.left = -size * aspect + shift; camera.right = size * aspect + shift; camera.top = size + 3; camera.bottom = -size + 3; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight) } window.addEventListener('resize', resize); resize();
+function resize() { const aspect = innerWidth / innerHeight, size = Math.max(46, 46 / aspect), shift = innerWidth > 1000 ? -4 : 0; camera.left = -size * aspect + shift; camera.right = size * aspect + shift; camera.top = size + 3; camera.bottom = -size + 3; camera.updateProjectionMatrix();
+    Object.assign(skyCamera,{left:camera.left,right:camera.right,top:camera.top,bottom:camera.bottom});skyCamera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight) } window.addEventListener('resize', resize); resize();
 function frame(now) {
-    requestAnimationFrame(frame); if (document.hidden) { previous = now; return } const dt = Math.min((now - previous) / 1000, .04); previous = now; elapsed += dt; motion.set(0, 0, 0); if (!dialog.open) { const horizontal = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')) + stick.x; const vertical = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + stick.y; motion.addScaledVector(right, horizontal).addScaledVector(forward, vertical); if (destination && !motion.lengthSq()) { motion.subVectors(destination, player.position); motion.y = 0; if (motion.length() < .25) { destination = null; motion.set(0, 0, 0) } } }
-    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 7 : 4.5); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed * (stick.pointer !== null && !keys.size ? Math.hypot(stick.x, stick.y) : 1) : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, obstacles, mode === 'drive' ? 1.8 : .65); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
+    requestAnimationFrame(frame); if (document.hidden) { previous = now; return } const skyDt = Math.max(0,(now - previous) / 1000); const dt = Math.min(skyDt, .04); previous = now; elapsed += dt; if (!reduced) { animateCity(elapsed); animateBoats(elapsed); } waterMaterial.uniforms.time.value = reduced ? 0 : elapsed; for (let i=0;i<shoreline.length;i++) shoreline[i].material.opacity = reduced ? .65 : .55 + Math.sin(elapsed*1.2+i)*.12;  motion.set(0, 0, 0); if (!dialog.open) { const horizontal = Number(keys.has('KeyD') || keys.has('ArrowRight')) - Number(keys.has('KeyA') || keys.has('ArrowLeft')) + stick.x; const vertical = Number(keys.has('KeyW') || keys.has('ArrowUp')) - Number(keys.has('KeyS') || keys.has('ArrowDown')) + stick.y; motion.addScaledVector(right, horizontal).addScaledVector(forward, vertical); if (destination && !motion.lengthSq()) { motion.subVectors(destination, player.position); motion.y = 0; if (motion.length() < .25) { destination = null; motion.set(0, 0, 0) } } }
+    const moving = motion.lengthSq() > .001; const maxSpeed = mode === 'drive' ? 15 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? 13 : 9); speed = THREE.MathUtils.damp(speed, moving ? maxSpeed * (stick.pointer !== null && !keys.size ? Math.hypot(stick.x, stick.y) : 1) : 0, mode === 'drive' ? 5 : 12, dt); if (moving) { motion.normalize(); const oldX = player.position.x, oldZ = player.position.z; move(player.position, motion.x * speed * dt, motion.z * speed * dt, [...obstacles,...traffic.map(c=>({x:c.mesh.position.x,z:c.mesh.position.z,w:2.6,d:2.6}))], mode === 'drive' ? 1.8 : .65); if (destination && Math.hypot(player.position.x - oldX, player.position.z - oldZ) < .001) destination = null; const target = Math.atan2(motion.x, motion.z); player.rotation.y += Math.atan2(Math.sin(target - player.rotation.y), Math.cos(target - player.rotation.y)) * Math.min(1, dt * 12); phase += dt * speed * 2.2 }
     avatar.position.y = moving && !reduced ? Math.abs(Math.sin(phase)) * .07 : 0; legs.forEach((leg, i) => leg.rotation.x = moving ? Math.sin(phase + i * Math.PI) * .48 : 0); arms.forEach((arm, i) => arm.rotation.x = moving ? -Math.sin(phase + i * Math.PI) * .4 : 0); if (moving) wheels.forEach(w => w.rotation.x += dt * speed * 2.6);
     if (!reduced) for (const a of animated) { if (a.kind === 'agent') { a.mesh.position.x = Math.cos(a.a + elapsed * .18) * a.r; a.mesh.position.z = Math.sin(a.a + elapsed * .22) * a.r } else if (a.kind === 'cloud') a.mesh.position.x = Math.sin(elapsed * .55) * .15 }
-    const wanted = new THREE.Vector3(player.position.x * .13, 0, player.position.z * .13); focus.lerp(wanted, reduced ? 1 : 1 - Math.exp(-dt * 2)); camera.position.copy(focus).add(offset); camera.lookAt(focus); camera.updateMatrixWorld();
-    for (const l of labels) { projected.copy(l.position).project(camera); l.element.style.left = `${(projected.x * .5 + .5) * innerWidth}px`; l.element.style.top = `${(-projected.y * .5 + .5) * innerHeight}px`; l.element.style.visibility = projected.z > 1 ? 'hidden' : 'visible' }
-    activeProject = nearestProject(player.position, stations); document.querySelector('#nearby').hidden = !activeProject || dialog.open; if (activeProject) document.querySelector('#nearby-title').textContent = activeProject.title; const dot = document.querySelector('#map-player'); dot.style.left = `${(player.position.x + 28) / 56 * 100}%`; dot.style.top = `${(player.position.z + 44) / 70 * 100}%`;
+    const wanted = new THREE.Vector3(player.position.x * .55, 0, -10 + player.position.z * .5); focus.lerp(wanted, reduced ? 1 : 1 - Math.exp(-dt * 2)); camera.position.copy(focus).add(offset); camera.lookAt(focus); camera.updateMatrixWorld(); animateClouds(skyDt);
+    // Keep station labels away from each other and the fixed UI panels.
+    const occupied = [];
+    for (const selector of ['.topbar','.intro','.toolbar','.minimap','#nearby','.touch-pad']) {
+        const element = document.querySelector(selector);
+        if (!element || element.hidden) continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width && rect.height) occupied.push(rect);
+    }
+    for (const l of labels) {
+        projected.copy(l.position).project(camera);
+        const anchorX = (projected.x*.5+.5)*innerWidth, anchorY = (-projected.y*.5+.5)*innerHeight;
+        const width = l.element.offsetWidth || 155, height = l.element.offsetHeight || 32;
+        let placement = null;
+        for (const [dx,dy] of [[0,0],[0,-36],[-55,-18],[55,-18],[0,-72],[-80,-52],[80,-52]]) {
+            const x=anchorX+dx, y=anchorY+dy;
+            const rect={left:x-width/2-5,right:x+width/2+5,top:y-height-5,bottom:y+5};
+            if (rect.left<8 || rect.right>innerWidth-8 || rect.top<8 || rect.bottom>innerHeight-8) continue;
+            if (occupied.some(r=>rect.left<r.right && rect.right>r.left && rect.top<r.bottom && rect.bottom>r.top)) continue;
+            placement={x,y,rect}; break;
+        }
+        l.element.style.visibility = placement && projected.z<=1 && !dialog.open ? 'visible' : 'hidden';
+        if (placement) { l.element.style.left=`${placement.x}px`; l.element.style.top=`${placement.y}px`; occupied.push(placement.rect); }
+    }
+    activeProject = nearestProject(player.position, stations); document.querySelector('#nearby').hidden = !activeProject || dialog.open; if (activeProject) document.querySelector('#nearby-title').textContent = activeProject.title; const dot = document.querySelector('#map-player'); dot.style.left = `${(player.position.x + 65) / 130 * 100}%`; dot.style.top = `${(player.position.z + 93) / 150 * 100}%`;
+    renderer.autoClear=true;
     renderer.render(scene, camera);
+    renderer.autoClear=false;
+    renderer.clearDepth();
+    renderer.render(skyScene,skyCamera);
+    renderer.autoClear=true;
 }
 frame(performance.now()); document.querySelector('#loading').classList.add('hidden'); setTimeout(() => document.querySelector('#loading').remove(), 450);
 

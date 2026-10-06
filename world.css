@@ -976,3 +976,38 @@ dialog { border:3px solid white; box-shadow:8px 8px 0 #e82e48; }.project-row { b
 .joystick-caption { position:absolute; bottom:7px; left:0; width:100%; font-size:9px; font-weight:800; letter-spacing:2px; pointer-events:none; }
 .joystick.active { border-color:#ff354d; }
 @media (pointer:fine) { .touch-pad.joystick { display:none; } }
+
+/* Two-island world labels and minimap. */
+#map-stations { position:absolute; inset:0; }
+
+.map { background:#34343f; }
+
+.map-city-ring{position:absolute;inset:1%;border:18px solid #85929f;background:#3385af;pointer-events:none}.map-center-island{position:absolute;left:28.5%;top:32.8%;width:43%;height:46.7%;background:#a4adb4;border:1px solid white;pointer-events:none}.map-road.horizontal{top:62%;left:10%;right:10%;height:3px}.map-road.vertical{left:49%;top:23%;bottom:19%;width:3px}
+
+/* Keep intro copy readable over water and bright city scenery. */
+.intro > p:not(.eyebrow) {
+    color: #fff;
+    background: #111116;
+    border-left: 3px solid #ff354d;
+    width: fit-content;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    margin: 10px 0 8px;
+    line-height: 1.65;
+    font-weight: 500;
+    box-shadow: 3px 3px 0 #0006;
+}
+.intro-line {
+    width: fit-content;
+    max-width: 100%;
+    padding: 4px 7px;
+    gap: 10px;
+    color: #fff;
+    background: #111116;
+    border-left: 3px solid #ff354d;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.5;
+    box-shadow: 3px 3px 0 #0006;
+}
